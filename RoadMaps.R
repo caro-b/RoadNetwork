@@ -3,7 +3,7 @@
 
 ## Packages
 # install required packages if needed
-packagelist <- c("rgdal", "osmdata","rgeos")
+packagelist <- c("rgdal", "osmdata","rgeos","dplyr","rgee","raster")
 new.packages <- packagelist[!(packagelist %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
@@ -28,18 +28,48 @@ roads_osm <- opq(aoi@bbox) %>%
   osmdata_sp()
 
 # extract roads as lines
-roads_osm_lines <- camps_osm$osm_lines
+roads_osm_lines <- roads_osm$osm_lines
 
 
 ## GEE - Hansen Global Forest Change
 
+# needs prior python installation
+# # It is necessary just once
+# ee_install()
+# 
+# # Initialize Earth Engine!
+# ee_Initialize()
+
+# aoi_sf <- st_as_sf(aoi)
+# aoi_sf <- st_set_crs(aoi_sf, 4326)
+# 
+# ee_aoi <- aoi_sf %>% 
+#  # st_read(quiet = TRUE) %>% 
+#   sf_as_ee()
+# region <- mask$geometry()$bounds()
+# 
+# ee_gfc <- ee$
+#   Image('UMD/hansen/global_forest_change_2020_v1_8')$
+#   clip(ee_aoi)
+# 
+# gfc <- ee_as_raster(ee_gfc, maxPixels=200000000)
+#plot(gfc)
+
+gfc_00 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_00.tif")
+gfc_05 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_05.tif")
+gfc_10 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_10.tif")
+gfc_15 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_15.tif")
+gfc_20 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_20.tif")
+# dir <- list.files(path="C:/Users/carob/Dropbox/EAGLE/SS21/Conservation", pattern="*.tif")
+# for (i in 1:length(dir)) assign(dir[i], raster(dir[i]))
 
 
-#### PRE PROCESSING ####
+#### PRE-PROCESSING ####
 
 # clip roads to aoi 
-roads_osm_clip <- gIntersection(roads_osm_lines, aoi)
-roads_2014_clip <- gIntersection(roads_2014, aoi)
+# byid = T to keep single features (roads)
+roads_osm_clip <- gIntersection(roads_osm_lines, aoi, byid = T)
+roads_2014_clip <- gIntersection(roads_2014, aoi, byid = T)
 
 plot(aoi)
 plot(roads_osm_clip, add = T, col ="pink")
@@ -48,6 +78,23 @@ plot(roads_2014_clip, add = T, col ="blue")
 # 2 more roads in OSM, one more for IZW data
 
 
+# mask loss areas in gfc
+hist(gfc_20)
+gfc_20_loss <- gfc_20
+gfc_20_loss[gfc_20_loss < 1] <- NA
+plot(gfc_20_loss)
 
+
+# union roads from OSM & IZW
+roads_union <- union(roads_osm_clip, roads_2014_clip)
+
+plot(aoi)
+plot(roads_union, add = T, col ="pink")
+
+
+# mask gfc according to roads
+gfc_20_roads <- mask(gfc_20_loss, roads_union)
+
+plot(gfc_20_roads, col = "purple")
 
 
