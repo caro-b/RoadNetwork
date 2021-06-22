@@ -3,7 +3,7 @@
 
 ## Packages
 # install required packages if needed
-packagelist <- c("rgdal", "osmdata","rgeos","dplyr","rgee","raster")
+packagelist <- c("rgdal", "osmdata","rgeos","dplyr","rgee","raster","sf")
 new.packages <- packagelist[!(packagelist %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
@@ -55,7 +55,7 @@ roads_osm_lines <- roads_osm$osm_lines
 # gfc <- ee_as_raster(ee_gfc, maxPixels=200000000)
 #plot(gfc)
 
-gfc_00 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_00.tif")
+gfc_01 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_01.tif")
 gfc_05 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_05.tif")
 gfc_10 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_10.tif")
 gfc_15 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_15.tif")
@@ -77,24 +77,64 @@ plot(roads_2014_clip, add = T, col ="blue")
 
 # 2 more roads in OSM, one more for IZW data
 
-
-# mask loss areas in gfc
-hist(gfc_20)
-gfc_20_loss <- gfc_20
-gfc_20_loss[gfc_20_loss < 1] <- NA
-plot(gfc_20_loss)
-
-
 # union roads from OSM & IZW
 roads_union <- union(roads_osm_clip, roads_2014_clip)
+crs(roads_union) <- crs(gfc_01)
+
+## mask loss areas in gfc data
+
+# function for masking loss areas in gfc loss data according to road data
+maskForestLoss <- function(forest_loss, roads_union) {
+  forest_loss[forest_loss < 1] <- NA
+  forest_loss_roads <- mask(forest_loss, roads_union)
+  return(forest_loss_roads)
+}
+
+# year 2001
+gfc_01_roads <- maskForestLoss(gfc_01, roads_union)
+plot(roads_union, col ="pink")
+plot(gfc_01_roads, col = "purple", main = "Forest Loss 2001", add=T)
+
+# year 2005
+gfc_05_roads <- maskForestLoss(gfc_05, roads_union)
+plot(gfc_05_roads, col = "yellow", main = "Forest Loss 2005")
+
+# year 2010
+gfc_10_roads <- maskForestLoss(gfc_10, roads_union)
+plot(gfc_10_roads, col = "blue", main = "Forest Loss 2010")
+
+# year 2015
+gfc_15_roads <- maskForestLoss(gfc_15, roads_union)
+plot(gfc_15_roads, col = "purple", main = "Forest Loss 2015")
+
+# year 2020
+gfc_20_roads <- maskForestLoss(gfc_20, roads_union)
+plot(gfc_20_roads, col = "pink", main = "Forest Loss 2020")
+
 
 plot(aoi)
 plot(roads_union, add = T, col ="pink")
+plot(gfc_01_roads, add=T, col = "purple")
 
 
-# mask gfc according to roads
-gfc_20_roads <- mask(gfc_20_loss, roads_union)
+# 
+# ## extract road on which forest loss pixels lie
+# # spatiallines to polygons
+# 
+# # raster to polygons
+# gfc_01_roads_pol <- rasterToPolygons(gfc_01_roads, dissolve=T)
+# # convert to sf
+# gfc_01_roads_pol_sf <- st_as_sf(gfc_01_roads_pol)
+# roads_union_sf <- st_as_sf(roads_union)
+# 
+# st_intersects(roads_union_sf, gfc_01_roads_pol_sf, sparse = F)
 
-plot(gfc_20_roads, col = "purple")
 
-
+# # outline
+# 
+# 
+# # spatial join
+# camps_join <- st_join(gfc_01_roads_pol_sf,roads_union_sf)
+# camps_touch <- st_touches(gfc_01_roads_pol_sf,roads_union_sf)
+# plot(camps_touch)
+# st_overlaps
