@@ -117,17 +117,24 @@ plot(roads_union, add = T, col ="pink")
 plot(gfc_01_roads, add=T, col = "purple")
 
 
-# 
-# ## extract road on which forest loss pixels lie
-# # spatiallines to polygons
-# 
-# # raster to polygons
-# gfc_01_roads_pol <- rasterToPolygons(gfc_01_roads, dissolve=T)
+## extract road on which forest loss pixels lie
+# raster to polygons
+gfc_01_roads_pol <- rasterToPolygons(gfc_01_roads, dissolve=T)
+
+# crop roads to extent of forest loss polygons
+roads_union_crop <- crop(roads_union, extent(gfc_01_roads_pol))
+
+plot(aoi)
+plot(roads_union_crop, add = T, col ="pink")
+plot(gfc_01_roads, add=T, col = "purple")
+
 # # convert to sf
 # gfc_01_roads_pol_sf <- st_as_sf(gfc_01_roads_pol)
 # roads_union_sf <- st_as_sf(roads_union)
 # 
 # st_intersects(roads_union_sf, gfc_01_roads_pol_sf, sparse = F)
+
+
 
 
 # # outline
