@@ -121,25 +121,34 @@ plot(gfc_01_roads, add=T, col = "purple")
 # raster to polygons
 gfc_01_roads_pol <- rasterToPolygons(gfc_01_roads, dissolve=T)
 
-# crop roads to extent of forest loss polygons
-roads_union_crop <- crop(roads_union, extent(gfc_01_roads_pol))
+# convert to sf
+gfc_01_roads_pol_sf <- st_as_sf(gfc_01_roads_pol)
+roads_union_sf <- st_as_sf(roads_union)
+
+
+# roads which intersect with forest loss
+intersect_01 <- roads_union_sf[which(st_intersects(roads_union_sf, gfc_01_roads_pol_sf, sparse = F)),]
 
 plot(aoi)
-plot(roads_union_crop, add = T, col ="pink")
-plot(gfc_01_roads, add=T, col = "purple")
+#plot(roads_union_sf, add = T, col ="orange")
+plot(intersect_01, add=T, col = "purple")
 
-# # convert to sf
-# gfc_01_roads_pol_sf <- st_as_sf(gfc_01_roads_pol)
-# roads_union_sf <- st_as_sf(roads_union)
+
+
+
+
+
+# # crop roads to extent of forest loss polygons
+# roads_union_crop <- crop(roads_union, extent(gfc_01_roads_pol))
 # 
-# st_intersects(roads_union_sf, gfc_01_roads_pol_sf, sparse = F)
-
-
+# plot(aoi)
+# plot(roads_union_crop, add = T, col ="pink")
+# plot(gfc_01_roads, add=T, col = "purple")
 
 
 # # outline
-# 
-# 
+
+
 # # spatial join
 # camps_join <- st_join(gfc_01_roads_pol_sf,roads_union_sf)
 # camps_touch <- st_touches(gfc_01_roads_pol_sf,roads_union_sf)
