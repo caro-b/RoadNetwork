@@ -163,10 +163,11 @@ roads_union_20 <- roads_union_15[is.na(over(roads_union_15, gfc_20_roads_pol))]
 #### VISUALIZATION ####
 
 # plot road development per year
-plot(aoi)
+plot(aoi, main= "Road Development per year")
 plot(intersect_01, add=T, col = "purple", main = "year 2001")
 plot(intersect_05, add=T, col = "pink", main = "year 2005")
 plot(intersect_10, add=T, col = "blue", main = "year 2010")
 plot(intersect_15, add=T, col = "orange", main = "year 2015")
 plot(intersect_20, add=T, col = "green", main = "year 2020")
-
+legend("topleft",legend=c("Year 2001", "Year 2005","Year 2010","Year 2015","Year 2020"),
+       col=c("purple","pink","blue","orange","green"),lty = 1)
