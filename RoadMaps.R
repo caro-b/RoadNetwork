@@ -3,7 +3,7 @@
 
 ## Packages
 # install required packages if needed
-packagelist <- c("rgdal", "osmdata","rgeos","dplyr","rgee","raster","sf")
+packagelist <- c("dplyr","osmdata","raster","rgee","rgdal","rgeos","sf","tidyverse")
 new.packages <- packagelist[!(packagelist %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
@@ -64,7 +64,7 @@ gfc_20 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_20.
 # for (i in 1:length(dir)) assign(dir[i], raster(dir[i]))
 
 
-#### PRE-PROCESSING ####
+#### ANALYSIS ####
 
 # clip roads to aoi 
 # byid = T to keep single features (roads)
@@ -111,46 +111,62 @@ plot(gfc_15_roads, col = "purple", main = "Forest Loss 2015")
 gfc_20_roads <- maskForestLoss(gfc_20, roads_union)
 plot(gfc_20_roads, col = "pink", main = "Forest Loss 2020")
 
-
 plot(aoi)
 plot(roads_union, add = T, col ="pink")
 plot(gfc_01_roads, add=T, col = "purple")
 
 
-## extract road on which forest loss pixels lie
+## extract roads on which forest loss pixels lie
 # raster to polygons
+# year 2001
 gfc_01_roads_pol <- rasterToPolygons(gfc_01_roads, dissolve=T)
+# year 2005
+gfc_05_roads_pol <- rasterToPolygons(gfc_05_roads, dissolve=T)
+# year 2010
+gfc_10_roads_pol <- rasterToPolygons(gfc_10_roads, dissolve=T)
+# year 2015
+gfc_15_roads_pol <- rasterToPolygons(gfc_15_roads, dissolve=T)
+# year 2020
+gfc_20_roads_pol <- rasterToPolygons(gfc_20_roads, dissolve=T)
 
-# convert to sf
-gfc_01_roads_pol_sf <- st_as_sf(gfc_01_roads_pol)
-roads_union_sf <- st_as_sf(roads_union)
 
 
+## year 2001
 # roads which intersect with forest loss
-intersect_01 <- roads_union_sf[which(st_intersects(roads_union_sf, gfc_01_roads_pol_sf, sparse = F)),]
+intersect_01 <- roads_union[intersect(roads_union, gfc_01_roads_pol)]
 
+# remove intersecting roads from road network for analysis of next year
+roads_union_01 <- roads_union[is.na(over(roads_union, gfc_01_roads_pol))]
+
+
+## year 2005
+intersect_05 <- roads_union_01[intersect(roads_union_01, gfc_05_roads_pol)]
+roads_union_05 <- roads_union_01[is.na(over(roads_union_01, gfc_05_roads_pol))]
+
+
+## year 2010
+intersect_10 <- roads_union_05[intersect(roads_union_05, gfc_10_roads_pol)]
+roads_union_10 <- roads_union_05[is.na(over(roads_union_05, gfc_10_roads_pol))]
+
+
+## year 2015
+intersect_15 <- roads_union_10[intersect(roads_union_10, gfc_15_roads_pol)]
+roads_union_15 <- roads_union_10[is.na(over(roads_union_10, gfc_15_roads_pol))]
+
+
+## year 2020
+intersect_20 <- roads_union_15[intersect(roads_union_15, gfc_20_roads_pol)]
+roads_union_20 <- roads_union_15[is.na(over(roads_union_15, gfc_20_roads_pol))]
+
+
+
+#### VISUALIZATION ####
+
+# plot road development per year
 plot(aoi)
-#plot(roads_union_sf, add = T, col ="orange")
-plot(intersect_01, add=T, col = "purple")
+plot(intersect_01, add=T, col = "purple", main = "year 2001")
+plot(intersect_05, add=T, col = "pink", main = "year 2005")
+plot(intersect_10, add=T, col = "blue", main = "year 2010")
+plot(intersect_15, add=T, col = "orange", main = "year 2015")
+plot(intersect_20, add=T, col = "green", main = "year 2020")
 
-
-
-
-
-
-# # crop roads to extent of forest loss polygons
-# roads_union_crop <- crop(roads_union, extent(gfc_01_roads_pol))
-# 
-# plot(aoi)
-# plot(roads_union_crop, add = T, col ="pink")
-# plot(gfc_01_roads, add=T, col = "purple")
-
-
-# # outline
-
-
-# # spatial join
-# camps_join <- st_join(gfc_01_roads_pol_sf,roads_union_sf)
-# camps_touch <- st_touches(gfc_01_roads_pol_sf,roads_union_sf)
-# plot(camps_touch)
-# st_overlaps
