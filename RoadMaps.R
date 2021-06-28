@@ -254,24 +254,33 @@ roads_union_20 <- roads_union_19[is.na(over(roads_union_19, gfc_20_roads_pol))]
 
 
 
-plot(aoi)
-plot(roads_union, add = T, col ="pink")
-plot(gfc_01_roads, add=T, col = "purple")
-
-
-
 #### VISUALIZATION ####
 
-# plot road development per year
+# plot road development per time period of 5 years
 plot(aoi, main= "Road Development per year")
-plot(intersect_01, add=T, col = "purple", main = "year 2001")
-plot(intersect_02, add=T, col = "brown", main = "year 2002")
-plot(intersect_03, add=T, col = "red", main = "year 2003")
-plot(intersect_04, add=T, col = "yellow", main = "year 2004")
-plot(intersect_05, add=T, col = "pink", main = "year 2005")
+plot(intersect_01, add=T, col = "magenta", main = "year 2001")
+plot(intersect_02, add=T, col = "magenta", main = "year 2002")
+plot(intersect_03, add=T, col = "magenta", main = "year 2003")
+plot(intersect_04, add=T, col = "magenta", main = "year 2004")
 
-plot(intersect_10, add=T, col = "blue", main = "year 2010")
+plot(intersect_05, add=T, col = "yellow", main = "year 2005")
+
+plot(intersect_07, add=T, col = "yellow", main = "year 2007")
+plot(intersect_08, add=T, col = "yellow", main = "year 2008")
+plot(intersect_09, add=T, col = "yellow", main = "year 2009")
+
+plot(intersect_11, add=T, col = "blue", main = "year 2011")
+plot(intersect_12, add=T, col = "blue", main = "year 2012")
+plot(intersect_13, add=T, col = "blue", main = "year 2013")
+plot(intersect_14, add=T, col = "blue", main = "year 2014")
+
 plot(intersect_15, add=T, col = "orange", main = "year 2015")
-plot(intersect_20, add=T, col = "green", main = "year 2020")
-legend("topleft",legend=c("Year 2001","Year 2002","Year 2003","Year 2004","Year 2005","Year 2010","Year 2015","Year 2020"),
-       col=c("purple","brown","red","yellow","pink","blue","orange","green"),lty = 1)
+plot(intersect_16, add=T, col = "orange", main = "year 2016")
+
+plot(intersect_18, add=T, col = "orange", main = "year 2018")
+plot(intersect_19, add=T, col = "orange", main = "year 2019")
+
+legend("topleft",legend=c("Year 2001-2004","Year 2005-2009","Year 2011-2014","Year 2015-2019"),
+       col=c("magenta","yellow","blue","orange"),lty = 1)
+
+
