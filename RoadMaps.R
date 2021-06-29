@@ -3,7 +3,7 @@
 
 ## Packages
 # install required packages if needed
-packagelist <- c("dplyr","ggplot2","ggthemes","maps","osmdata","raster","rgee","rgdal","rgeos","sf","tidyverse")
+packagelist <- c("dplyr","gganimate","ggplot2","ggthemes","maps","osmdata","raster","rgee","rgdal","rgeos","sf","tidyverse")
 new.packages <- packagelist[!(packagelist %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
@@ -75,8 +75,8 @@ gfc_17 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_17.
 gfc_18 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_18.tif")
 gfc_19 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_19.tif")
 gfc_20 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_20.tif")
-# dir <- list.files(path="C:/Users/carob/Dropbox/EAGLE/SS21/Conservation", pattern="*.tif")
-# for (i in 1:length(dir)) assign(dir[i], raster(dir[i]))
+#dir <- list.files(path="C:/Users/carob/Dropbox/EAGLE/SS21/Conservation", pattern="*.tif")
+#for (i in 1:length(dir)) assign(dir[i], raster(dir[i]))
 
 
 #### ANALYSIS ####
@@ -287,8 +287,12 @@ legend("topleft",legend=c("Year 2001-2004","Year 2005-2009","Year 2011-2014","Ye
 ## Animation
 
 # first convert data to sf & add year column
-intersect_01_sf <- st_as_sf(intersect_01)
+#intersect_01_sf <- st_as_sf(intersect_01)
 intersect_01_sf$year <- 2001
+ 
+# # convert to SpatialLinesDataFrame & add year
+# intersect_01_sl <- SpatialLinesDataFrame(intersect_01, as.data.frame(intersect_01_sf$year), match.ID = F)
+
 
 intersect_02_sf <- st_as_sf(intersect_02)
 intersect_02_sf$year <- 2002
@@ -336,15 +340,32 @@ intersect_19_sf <- st_as_sf(intersect_19)
 intersect_19_sf$year <- 2019
 
 
+
 # combine years into one dataframe
 intersect <- rbind(intersect_01_sf, intersect_02_sf, intersect_03_sf, intersect_04_sf, intersect_05_sf, intersect_07_sf, intersect_08_sf, intersect_09_sf,
-                   intersect_11_sf, intersect_12_sf, intersect_13_sf, intersect_14_sf, intersect_15_sf, intersect_16_sf, intersect_18_sf, intersect_19_sf)
+                    intersect_11_sf, intersect_12_sf, intersect_13_sf, intersect_14_sf, intersect_15_sf, intersect_16_sf, intersect_18_sf, intersect_19_sf)
 
-area <- ggplot() +
+
+
+# basic plot
+area <- 
+  ggplot(data=intersect) +
+  geom_sf(aes(fill = as.factor(year))) +
+  #scale_fill_hue() +
   borders(aoi, colour = "gray85") +
-  theme_map()
+  theme_map() 
 
 plot(area)
 
 
+
+# animation - road development per year
+map <- area +
+  theme(legend.position = "none") +
+  # Here comes the gganimate part
+  labs(title = "Road Development 2000-2020", subtitle = "Year: {closest_state}") +
+  transition_states(year) +
+  ease_aes('linear') 
+
+# rather consecutive road development of previous years?
 
