@@ -3,7 +3,7 @@
 
 ## Packages
 # install required packages if needed
-packagelist <- c("dplyr","osmdata","raster","rgee","rgdal","rgeos","sf","tidyverse")
+packagelist <- c("dplyr","ggplot2","ggthemes","maps","osmdata","raster","rgee","rgdal","rgeos","sf","tidyverse")
 new.packages <- packagelist[!(packagelist %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
@@ -282,5 +282,69 @@ plot(intersect_19, add=T, col = "orange", main = "year 2019")
 
 legend("topleft",legend=c("Year 2001-2004","Year 2005-2009","Year 2011-2014","Year 2015-2019"),
        col=c("magenta","yellow","blue","orange"),lty = 1)
+
+
+## Animation
+
+# first convert data to sf & add year column
+intersect_01_sf <- st_as_sf(intersect_01)
+intersect_01_sf$year <- 2001
+
+intersect_02_sf <- st_as_sf(intersect_02)
+intersect_02_sf$year <- 2002
+
+intersect_03_sf <- st_as_sf(intersect_03)
+intersect_03_sf$year <- 2003
+
+intersect_04_sf <- st_as_sf(intersect_04)
+intersect_04_sf$year <- 2004
+
+intersect_05_sf <- st_as_sf(intersect_05)
+intersect_05_sf$year <- 2005
+
+intersect_07_sf <- st_as_sf(intersect_07)
+intersect_07_sf$year <- 2007
+
+intersect_08_sf <- st_as_sf(intersect_08)
+intersect_08_sf$year <- 2008
+
+intersect_09_sf <- st_as_sf(intersect_09)
+intersect_09_sf$year <- 2009
+
+intersect_11_sf <- st_as_sf(intersect_11)
+intersect_11_sf$year <- 2011
+
+intersect_12_sf <- st_as_sf(intersect_12)
+intersect_12_sf$year <- 2012
+
+intersect_13_sf <- st_as_sf(intersect_13)
+intersect_13_sf$year <- 2013
+
+intersect_14_sf <- st_as_sf(intersect_14)
+intersect_14_sf$year <- 2014
+
+intersect_15_sf <- st_as_sf(intersect_15)
+intersect_15_sf$year <- 2015
+
+intersect_16_sf <- st_as_sf(intersect_16)
+intersect_16_sf$year <- 2016
+
+intersect_18_sf <- st_as_sf(intersect_18)
+intersect_18_sf$year <- 2018
+
+intersect_19_sf <- st_as_sf(intersect_19)
+intersect_19_sf$year <- 2019
+
+
+# combine years into one dataframe
+intersect <- rbind(intersect_01_sf, intersect_02_sf, intersect_03_sf, intersect_04_sf, intersect_05_sf, intersect_07_sf, intersect_08_sf, intersect_09_sf,
+                   intersect_11_sf, intersect_12_sf, intersect_13_sf, intersect_14_sf, intersect_15_sf, intersect_16_sf, intersect_18_sf, intersect_19_sf)
+
+area <- ggplot() +
+  borders(aoi, colour = "gray85") +
+  theme_map()
+
+plot(area)
+
 
 
