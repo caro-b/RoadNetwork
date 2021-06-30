@@ -86,11 +86,14 @@ gfc_20 <- raster("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/forest_loss_20.
 roads_osm_clip <- gIntersection(roads_osm_lines, aoi, byid = T)
 roads_2014_clip <- gIntersection(roads_2014, aoi, byid = T)
 
-plot(aoi)
-plot(roads_osm_clip, add = T, col ="pink")
-plot(roads_2014_clip, add = T, col ="blue")
 
-# 2 more roads in OSM, one more for IZW data
+# discrepancies between OSM & IZW road data
+plot(aoi)
+plot(roads_2014_clip, add = T, col ="blue")
+plot(roads_osm_clip, add = T, col ="orange")
+legend("topleft",legend=c("Roads IZW (2014)","Roads OSM (2020)"),
+       col=c("blue","orange"),lty = 1)
+
 
 # union roads from OSM & IZW
 roads_union <- union(roads_osm_clip, roads_2014_clip)
@@ -253,11 +256,16 @@ intersect_20 <- roads_union_19[intersect(roads_union_19, gfc_20_roads_pol)] # no
 roads_union_20 <- roads_union_19[is.na(over(roads_union_19, gfc_20_roads_pol))]
 
 
+# roads not intersecting with forest loss pixels
+plot(aoi, main= "Roads not intersecting with Forest Loss Pixels")
+plot(roads_union_20, add=T, col = "magenta")
+
+
 
 #### VISUALIZATION ####
 
 # plot road development per time period of 5 years
-plot(aoi, main= "Road Development per year")
+plot(aoi, main= "Road Development per Time Period")
 plot(intersect_01, add=T, col = "magenta", main = "year 2001")
 plot(intersect_02, add=T, col = "magenta", main = "year 2002")
 plot(intersect_03, add=T, col = "magenta", main = "year 2003")
@@ -287,7 +295,7 @@ legend("topleft",legend=c("Year 2001-2004","Year 2005-2009","Year 2011-2014","Ye
 ## Animation
 
 # first convert data to sf & add year column
-#intersect_01_sf <- st_as_sf(intersect_01)
+intersect_01_sf <- st_as_sf(intersect_01)
 intersect_01_sf$year <- 2001
  
 # # convert to SpatialLinesDataFrame & add year
@@ -345,12 +353,14 @@ intersect_19_sf$year <- 2019
 intersect <- rbind(intersect_01_sf, intersect_02_sf, intersect_03_sf, intersect_04_sf, intersect_05_sf, intersect_07_sf, intersect_08_sf, intersect_09_sf,
                     intersect_11_sf, intersect_12_sf, intersect_13_sf, intersect_14_sf, intersect_15_sf, intersect_16_sf, intersect_18_sf, intersect_19_sf)
 
+# convert year to factor (for plotting)
+intersect$year <- as.factor(intersect$year)
 
 
 # basic plot
 area <- 
   ggplot(data=intersect) +
-  geom_sf(aes(fill = as.factor(year))) +
+  geom_sf(aes(fill = year)) +
   #scale_fill_hue() +
   borders(aoi, colour = "gray85") +
   theme_map() 
@@ -358,9 +368,8 @@ area <-
 plot(area)
 
 
-
 # animation - road development per year
-map <- area +
+  area +
   theme(legend.position = "none") +
   # Here comes the gganimate part
   labs(title = "Road Development 2000-2020", subtitle = "Year: {closest_state}") +
