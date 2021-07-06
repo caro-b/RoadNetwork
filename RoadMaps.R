@@ -53,11 +53,14 @@ gfc <- brick(gfc_stack)
 
 #### PRE-PROCESSING ####
 
-# set crs of aoi
 crs(gfc$forest_loss_01)
 # CRS("+proj=longlat +datum=WGS84")
-aoi <- spTransform(aoi, CRS("+proj=longlat +datum=WGS84"))
-crs(roads_osm_lines) <- crs(gfc$forest_loss_01)
+
+# set crs of aoi
+crs(aoi) <- crs(gfc$forest_loss_01)
+
+# transform crs of roads
+roads_osm_lines <- spTransform(roads_osm_lines, CRS("+proj=longlat +datum=WGS84"))
 crs(roads_2014) <- crs(gfc$forest_loss_01)
 
 # clip roads to aoi 
@@ -110,7 +113,8 @@ maskForestLoss <- function(forest_loss, roads) {
   forest_loss[forest_loss < 1] <- NA
   forest_loss_roads <- mask(forest_loss, roads)
   # raster to polygons
-  forest_loss_roads_pol <- rasterToPolygons(forest_loss_roads, dissolve=F)
+  forest_loss_roads_pol <- rasterToPolygons(forest_loss_roads, dissolve=F) 
+  #### TODO: rather use gdal_polygonizeR() due to runtime?? ####
   return(forest_loss_roads_pol)
 }
 
@@ -118,7 +122,7 @@ maskForestLoss <- function(forest_loss, roads) {
 #### question for Martin: why does area(gfc_01_roads_pol) correspond to pixel size (900m²), but width in buffer() only works with degrees?? ####
 ## buffer() - Unit of width is meter if x has a longitude/latitude CRS
 
-# function to make buffer around forest loss pixels to check if forest loss pixels actually correspond to road development
+# function to buffer around forest loss pixels to check if forest loss pixels actually correspond to road development
 bufferPixels <- function(gfc_roads_pol) {
   # buffering for SpatialPolygons can only deal with planar coordinate reference systems (eg UTM)
   gfc_buffer <- buffer(gfc_roads_pol, width = 0.001, dissolve=F) # ~100m buffer around forest loss pixels
@@ -134,13 +138,20 @@ bufferPixels <- function(gfc_roads_pol) {
   # buffer (100m) / 3 * 30m
   #roadDevPixels <- gfc_roads_pol[polygonsInBuffer$forest_loss_01 > 2,]
   
-  #### TODO: altern. with area instead of sum ? ####
-  roadDevPixels <- gfc_roads_pol[(polygonsInBuffer$area / mean(area(gfc_buffer))) >= 0.1,]
-
+  # altern. with area instead of sum ?
+  roadDevPixels <- gfc_roads_pol[(polygonsInBuffer$area / mean(area(gfc_buffer))) >= 0.05,]
   
-  return(roadDevPixels)
+  # aggregate pixels which are spatial overlapping
+  # need to aggregate them all first
+  roadDevPixels_agg <- aggregate(roadDevPixels)
+  # and then disagreggate spatially neighboring pixels to forest loss fragments
+  roadDevPixels_dis <- disaggregate(roadDevPixels_agg)
+  
+  return(roadDevPixels_dis)
 }
 
+# plot(gfc_roads_pol)
+# plot(roadDevPixels,col="magenta")
 
 
 ## year 2001
@@ -149,11 +160,15 @@ gfc_01_roads_pol <- maskForestLoss(gfc$forest_loss_01, roads_union_buffer)
 
 plot(gfc_01_roads_pol)
 
-# function to buffer around forest loss pixels to get forest loss pixels corresponding to road development
+# buffer around forest loss pixels to get forest loss pixels corresponding to road development
+# & aggregate neighboring forest loss pixels - forest loss fragments
 gfc_01_roadDev <- bufferPixels(gfc_01_roads_pol)
 
 # roads which intersect with forest loss
 intersect_01 <- roads_union_buffer[intersect(roads_union_buffer, gfc_01_roadDev)]
+
+#### TODO: cut roads around forest loss fragments & only include party which are bigger than certain length ?? ####
+
 
 # remove intersecting roads from road network for analysis of next year
 roads_union_01 <- roads_union_buffer[is.na(over(roads_union_buffer, gfc_01_roadDev))]
