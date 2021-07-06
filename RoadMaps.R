@@ -15,9 +15,14 @@ lapply(packagelist, require, character.only = TRUE)
 #### DATA IMPORT ####
 getwd()
 
-# manually digitized roads from IZW
-roads_2014 <- readOGR("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/2014.shp")
-aoi <- readOGR("C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/prediction_area.shp")
+# set directory to folder where input files lie
+dir <- "C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/"
+
+# input area of interest
+aoi <- readOGR(paste(dir, "prediction_area.shp", sep = ""))
+
+# input manually digitized roads from IZW
+roads_2014 <- readOGR(paste(dir, "2014.shp", sep = ""))
 
 
 ## input OSM - roads data
@@ -34,9 +39,6 @@ roads_osm_lines <- roads_osm$osm_lines
 
 ## input Hansen GFC raster files 
 
-# set directory where downloaded files from GEE are in
-dir <- "C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/"
-
 # read all files from directory into list
 files <- list.files(path= dir, pattern="*.tif", full.names=T)
 
@@ -52,7 +54,9 @@ gfc <- brick(gfc_stack)
 #### PRE-PROCESSING ####
 
 # set crs of aoi
-crs(aoi) <- crs(gfc$forest_loss_01)
+crs(gfc$forest_loss_01)
+# CRS("+proj=longlat +datum=WGS84")
+aoi <- spTransform(aoi, CRS("+proj=longlat +datum=WGS84"))
 crs(roads_osm_lines) <- crs(gfc$forest_loss_01)
 crs(roads_2014) <- crs(gfc$forest_loss_01)
 
@@ -68,27 +72,28 @@ plot(roads_2014_clip, add = T, col ="blue")
 plot(roads_osm_clip, add = T, col ="orange")
 legend("topleft",legend=c("Roads IZW (2014)","Roads OSM (2020)"),
        col=c("blue","orange"),lty = 1)
-# take OSM data (as better for scaling)
-
 
 # combine roads from OSM & IZW
 
-# remove roads where OSM & IZW roads intersect (only include additional roads from IZW which aren't in OSM data)
+# remove roads where OSM & IZW roads intersect
+# take OSM data (as better for scaling)
+# (only include additional roads from IZW which aren't in OSM data)
 roads_2014_new <- roads_2014_clip[is.na(over(roads_2014_clip,roads_osm_clip))]
 
 # only use osm roads, add additional IZW roads
-roads_union <- rbind(roads_osm_clip,roads_2014_new)
+roads_union <- rbind(roads_osm_clip, roads_2014_new)
 
 
 
 ## buffer around roads (as OSM only provides lines, not the original street width)
 # highway width = 22m
 # crs needs to be in long/lat for buffer in meters
-roads_union@proj4string #WGS84 (EPSG: 4326)
+roads_union@proj4string # WGS84 (EPSG: 4326)
 
 # set crs to EPSG:3405 VN-2000 / UTM zone 48N
 # https://spatialreference.org/ref/epsg/vn-2000-utm-zone-48n/
-crs(roads_union) <- CRS("+proj=utm +zone=48 +ellps=WGS84 +units=m +no_defs")
+# Proj4js.defs["EPSG:3405"] = "+proj=utm +zone=48 +ellps=WGS84 +units=m +no_defs";
+#roads_union <- spTransform(roads_union, CRS("+proj=utm +zone=48 +ellps=WGS84 +units=m +no_defs"))
 
 roads_union_buffer <- buffer(roads_union, width = 0.0005, dissolve=F) #~50m buffer
 
@@ -110,24 +115,32 @@ maskForestLoss <- function(forest_loss, roads) {
 }
 
 
-#### question for Martin: why does area(gfc_01_roads_pol) correspond to pixel size (900m²), but width oly works with degrees?? ####
+#### question for Martin: why does area(gfc_01_roads_pol) correspond to pixel size (900m²), but width in buffer() only works with degrees?? ####
+## buffer() - Unit of width is meter if x has a longitude/latitude CRS
 
 # function to make buffer around forest loss pixels to check if forest loss pixels actually correspond to road development
 bufferPixels <- function(gfc_roads_pol) {
   # buffering for SpatialPolygons can only deal with planar coordinate reference systems (eg UTM)
   gfc_buffer <- buffer(gfc_roads_pol, width = 0.001, dissolve=F) # ~100m buffer around forest loss pixels
-  # check if more than x forest loss polygons in buffer - to only include forest loss polygons which correspond to road development
-  # as each polygon corresponds to one pixel (and they have the similar size), possible to sum up pixels
-  # count number of polygons in per buffer
-  polygonsInBuffer <- over(gfc_roads_pol, gfc_buffer, fn = sum)
-  #sort(test$forest_loss_01)
+  # add area column to buffer & calculate area per buffer
+  gfc_buffer$area <- area(gfc_buffer)
+  gfc_roads_pol$area <- area(gfc_roads_pol)
+  # check if more than x% forest loss in buffer - to only include forest loss polygons which correspond to road development
+  # count number of polygons in each buffer & add areas of polygons up
+  polygonsInBuffer <- over(gfc_buffer, gfc_roads_pol, fn = sum)
+
   # remove polygons which don't have 3 or more forest loss pixels per buffer 
   # (1 pixel = ~30m x 30m = 900m² forest loss), (3 pixels =~ 1800m² = 1.8km)
   # buffer (100m) / 3 * 30m
-  roadDevPixels <- gfc_roads_pol[polygonsInBuffer$forest_loss_01 > 2,]
+  #roadDevPixels <- gfc_roads_pol[polygonsInBuffer$forest_loss_01 > 2,]
+  
+  #### TODO: altern. with area instead of sum ? ####
+  roadDevPixels <- gfc_roads_pol[(polygonsInBuffer$area / mean(area(gfc_buffer))) >= 0.1,]
+
+  
   return(roadDevPixels)
 }
-#### TODO: altern. with area instead of sum ? ####
+
 
 
 ## year 2001
@@ -135,7 +148,6 @@ bufferPixels <- function(gfc_roads_pol) {
 gfc_01_roads_pol <- maskForestLoss(gfc$forest_loss_01, roads_union_buffer)
 
 plot(gfc_01_roads_pol)
-plot(gfc_01_buffer, add = T)
 
 # function to buffer around forest loss pixels to get forest loss pixels corresponding to road development
 gfc_01_roadDev <- bufferPixels(gfc_01_roads_pol)
