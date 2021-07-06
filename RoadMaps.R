@@ -115,6 +115,8 @@ maskForestLoss <- function(forest_loss, roads) {
   # raster to polygons
   forest_loss_roads_pol <- rasterToPolygons(forest_loss_roads, dissolve=F) 
   #### TODO: rather use gdal_polygonizeR() due to runtime?? ####
+  # remove data column
+  forest_loss_roads_pol <- forest_loss_roads_pol[,-1]
   return(forest_loss_roads_pol)
 }
 
@@ -122,36 +124,39 @@ maskForestLoss <- function(forest_loss, roads) {
 #### question for Martin: why does area(gfc_01_roads_pol) correspond to pixel size (900m²), but width in buffer() only works with degrees?? ####
 ## buffer() - Unit of width is meter if x has a longitude/latitude CRS
 
-# function to buffer around forest loss pixels to check if forest loss pixels actually correspond to road development
-bufferPixels <- function(gfc_roads_pol) {
-  # buffering for SpatialPolygons can only deal with planar coordinate reference systems (eg UTM)
-  gfc_buffer <- buffer(gfc_roads_pol, width = 0.001, dissolve=F) # ~100m buffer around forest loss pixels
-  # add area column to buffer & calculate area per buffer
-  gfc_buffer$area <- area(gfc_buffer)
-  gfc_roads_pol$area <- area(gfc_roads_pol)
-  # check if more than x% forest loss in buffer - to only include forest loss polygons which correspond to road development
-  # count number of polygons in each buffer & add areas of polygons up
-  polygonsInBuffer <- over(gfc_buffer, gfc_roads_pol, fn = sum)
+plot(gfc_roads_pol)
+#plot(gfc_buffer, add=T)
+plot(roadDevPixels,col="magenta")
 
-  # remove polygons which don't have 3 or more forest loss pixels per buffer 
-  # (1 pixel = ~30m x 30m = 900m² forest loss), (3 pixels =~ 1800m² = 1.8km)
-  # buffer (100m) / 3 * 30m
-  #roadDevPixels <- gfc_roads_pol[polygonsInBuffer$forest_loss_01 > 2,]
-  
-  # altern. with area instead of sum ?
-  roadDevPixels <- gfc_roads_pol[(polygonsInBuffer$area / mean(area(gfc_buffer))) >= 0.05,]
-  
-  # aggregate pixels which are spatial overlapping
-  # need to aggregate them all first
-  roadDevPixels_agg <- aggregate(roadDevPixels)
-  # and then disagreggate spatially neighboring pixels to forest loss fragments
-  roadDevPixels_dis <- disaggregate(roadDevPixels_agg)
-  
-  return(roadDevPixels_dis)
+
+plot(roads_union_buffer)
+plot(gfc_01_roads_pol, add=T, col="magenta")
+
+## function to buffer around each road, only when x% of forest loss pixels in buffer, then road dev
+bufferRoads <- function(gfc_roads_pol, roads_buffer) {
+  # calculate area of buffers
+  roads_buffer$area <- area(roads_buffer)
+  # calculate area of forest loss polygons
+  gfc_roads_pol$area <- area(gfc_roads_pol)
+  # count number of & calculate sum of area of forest loss pixels which lie in each buffer
+  pixelsInBuffer <- over(roads_buffer, gfc_roads_pol, fn = sum)
+  # get roads for which x% of forest loss pixels lie in buffer, then road dev
+  roads <- roads_buffer[((pixelsInBuffer$area / area(roads_buffer)) >= 0.3) & !is.na(pixelsInBuffer$area),]
+  return(roads)
 }
 
-# plot(gfc_roads_pol)
-# plot(roadDevPixels,col="magenta")
+## function to get corresp. forest loss pixels which lie on roads
+bufferPixels <- function(gfc_roads_pol, roads) {
+  # check if roads is empty
+  if (length(roads) == 0) {
+    # bullshit comparison to pass empty spatialpolygonsdataframe
+    pixels <- gfc_roads_pol[gfc_roads_pol$area == "hello",]
+  } else {
+    # forest loss pixels which lie on roads
+    pixels <- gfc_roads_pol[!is.na(over(gfc_roads_pol, roads)[,1]),]
+  }
+  return(pixels)
+}
 
 
 ## year 2001
@@ -160,157 +165,45 @@ gfc_01_roads_pol <- maskForestLoss(gfc$forest_loss_01, roads_union_buffer)
 
 plot(gfc_01_roads_pol)
 
-# buffer around forest loss pixels to get forest loss pixels corresponding to road development
-# & aggregate neighboring forest loss pixels - forest loss fragments
-gfc_01_roadDev <- bufferPixels(gfc_01_roads_pol)
+# roads which correspond to road dev. in year 2001
+roads_01 <- bufferRoads(gfc_01_roads_pol, roads_union_buffer)
 
-# roads which intersect with forest loss
-intersect_01 <- roads_union_buffer[intersect(roads_union_buffer, gfc_01_roadDev)]
+# forest loss pixels which corresponds to road dev. in year 2001
+gfc_roadDev_01 <- bufferPixels(gfc_01_roads_pol, roads_01)
 
-#### TODO: cut roads around forest loss fragments & only include party which are bigger than certain length ?? ####
-
+# remove corresp. forest loss pixels from polygons 
+if (length(pixels) != 0) {
+  pixelsNotIn_01 <- erase(gfc_roads_pol, pixels)
+} else {
+  pixelsNotIn_01 <- pixels
+}
 
 # remove intersecting roads from road network for analysis of next year
-roads_union_01 <- roads_union_buffer[is.na(over(roads_union_buffer, gfc_01_roadDev))]
+if (length(roads_01) != 0) {
+  roads_01_new <- erase(roads_union_buffer, roads_01)
+} else {
+  roads_01_new <- roads_01
+}
 
-
-#### TODO: subdivide roads into ~km (?) segments??? ####
-# length of spatial lines
-sort(gLength(roads_union, byid = T))
-
-
+#### TODO: better & consistent naming ! ####
 
 ## year 2002
-gfc_02_roads_pol <- maskForestLoss(gfc$forest_loss_02, roads_union)
+gfc_02_roads_pol <- maskForestLoss(gfc$forest_loss_02, roads_01_new)
 
-intersect_02 <- roads_union_01[intersect(roads_union_01, gfc_02_roads_pol)]
-roads_union_02 <- roads_union_01[is.na(over(roads_union_01, gfc_02_roads_pol))]
+#### TODO: combine pixels with left over pixels from previous year ####
+gfc_02_roads_pol_new <- rbind(pixelsNotIn_01, gfc_02_roads_pol, make.row.names=F)
+
+
 
 
 ## year 2003
-gfc_03_roads_pol <- maskForestLoss(gfc$forest_loss_03, roads_union)
+gfc_03_roads_pol <- maskForestLoss(gfc$forest_loss_03, roads_union_buffer)
 
 intersect_03 <- roads_union_02[intersect(roads_union_02, gfc_03_roads_pol)]
 roads_union_03 <- roads_union_02[is.na(over(roads_union_02, gfc_03_roads_pol))]
 
 
-## year 2004
-gfc_04_roads_pol <- maskForestLoss(gfc$forest_loss_04, roads_union)
-
-intersect_04 <- roads_union_03[intersect(roads_union_03, gfc_04_roads_pol)]
-roads_union_04 <- roads_union_03[is.na(over(roads_union_03, gfc_04_roads_pol))]
-
-
-## year 2005
-gfc_05_roads_pol <- maskForestLoss(gfc$forest_loss_05, roads_union)
-
-intersect_05 <- roads_union_04[intersect(roads_union_04, gfc_05_roads_pol)]
-roads_union_05 <- roads_union_04[is.na(over(roads_union_04, gfc_05_roads_pol))]
-
-
-## year 2006
-gfc_06_roads_pol <- maskForestLoss(gfc$forest_loss_06, roads_union)
-
-intersect_06 <- roads_union_05[intersect(roads_union_05, gfc_06_roads_pol)] # no intersecting roads
-roads_union_06 <- roads_union_05[is.na(over(roads_union_05, gfc_06_roads_pol))]
-
-
-## year 2007
-gfc_07_roads_pol <- maskForestLoss(gfc$forest_loss_07, roads_union)
-
-intersect_07 <- roads_union_06[intersect(roads_union_06, gfc_07_roads_pol)]
-roads_union_07 <- roads_union_06[is.na(over(roads_union_06, gfc_07_roads_pol))]
-
-
-## year 2008
-gfc_08_roads_pol <- maskForestLoss(gfc$forest_loss_08, roads_union)
-
-intersect_08 <- roads_union_07[intersect(roads_union_07, gfc_08_roads_pol)]
-roads_union_08 <- roads_union_07[is.na(over(roads_union_07, gfc_08_roads_pol))]
-
-
-## year 2009
-gfc_09_roads_pol <- maskForestLoss(gfc$forest_loss_09, roads_union)
-
-intersect_09 <- roads_union_08[intersect(roads_union_08, gfc_09_roads_pol)]
-roads_union_09 <- roads_union_08[is.na(over(roads_union_08, gfc_09_roads_pol))]
-
-
-## year 2010
-gfc_10_roads_pol <- maskForestLoss(gfc$forest_loss_10, roads_union)
-
-intersect_10 <- roads_union_09[intersect(roads_union_09, gfc_10_roads_pol)] # no intersecting roads
-roads_union_10 <- roads_union_09[is.na(over(roads_union_09, gfc_10_roads_pol))]
-
-
-## year 2011
-gfc_11_roads_pol <- maskForestLoss(gfc$forest_loss_11, roads_union)
-
-intersect_11 <- roads_union_10[intersect(roads_union_10, gfc_11_roads_pol)]
-roads_union_11 <- roads_union_10[is.na(over(roads_union_10, gfc_11_roads_pol))]
-
-
-## year 2012
-gfc_12_roads_pol <- maskForestLoss(gfc$forest_loss_12, roads_union)
-
-intersect_12 <- roads_union_11[intersect(roads_union_11, gfc_12_roads_pol)]
-roads_union_12 <- roads_union_11[is.na(over(roads_union_11, gfc_12_roads_pol))]
-
-
-## year 2013
-gfc_13_roads_pol <- maskForestLoss(gfc$forest_loss_13, roads_union)
-
-intersect_13 <- roads_union_12[intersect(roads_union_12, gfc_13_roads_pol)]
-roads_union_13 <- roads_union_12[is.na(over(roads_union_12, gfc_13_roads_pol))]
-
-
-## year 2014
-gfc_14_roads_pol <- maskForestLoss(gfc$forest_loss_14, roads_union)
-
-intersect_14 <- roads_union_13[intersect(roads_union_13, gfc_14_roads_pol)]
-roads_union_14 <- roads_union_13[is.na(over(roads_union_13, gfc_14_roads_pol))]
-
-
-## year 2015
-gfc_15_roads_pol <- maskForestLoss(gfc$forest_loss_15, roads_union)
-
-intersect_15 <- roads_union_14[intersect(roads_union_14, gfc_15_roads_pol)]
-roads_union_15 <- roads_union_14[is.na(over(roads_union_14, gfc_15_roads_pol))]
-
-
-## year 2016
-gfc_16_roads_pol <- maskForestLoss(gfc$forest_loss_16, roads_union)
-
-intersect_16 <- roads_union_15[intersect(roads_union_15, gfc_16_roads_pol)]
-roads_union_16 <- roads_union_15[is.na(over(roads_union_15, gfc_16_roads_pol))]
-
-
-## year 2017
-gfc_17_roads_pol <- maskForestLoss(gfc$forest_loss_17, roads_union)
-
-intersect_17 <- roads_union_16[intersect(roads_union_16, gfc_17_roads_pol)] # no intersecting roads
-roads_union_17 <- roads_union_16[is.na(over(roads_union_16, gfc_17_roads_pol))]
-
-
-## year 2018
-gfc_18_roads_pol <- maskForestLoss(gfc$forest_loss_18, roads_union)
-
-intersect_18 <- roads_union_17[intersect(roads_union_17, gfc_18_roads_pol)]
-roads_union_18 <- roads_union_17[is.na(over(roads_union_17, gfc_18_roads_pol))]
-
-
-## year 2019
-gfc_19_roads_pol <- maskForestLoss(gfc$forest_loss_19, roads_union)
-
-intersect_19 <- roads_union_18[intersect(roads_union_18, gfc_19_roads_pol)]
-roads_union_19 <- roads_union_18[is.na(over(roads_union_18, gfc_19_roads_pol))]
-
-
-## year 2020
-gfc_20_roads_pol <- maskForestLoss(gfc$forest_loss_20, roads_union)
-
-intersect_20 <- roads_union_19[intersect(roads_union_19, gfc_20_roads_pol)] # no intersecting roads
-roads_union_20 <- roads_union_19[is.na(over(roads_union_19, gfc_20_roads_pol))]
+#### TODO: automate years via loop ####
 
 
 # roads not intersecting with forest loss pixels
