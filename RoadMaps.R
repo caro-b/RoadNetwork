@@ -103,6 +103,8 @@ roads_union_buffer <- buffer(roads_union, width = 0.0005, dissolve=F) #~50m buff
 plot(roads_union)
 plot(roads_union_buffer, add=T)
 
+#### question for Martin: why does area(gfc_01_roads_pol) correspond to pixel size (900m²), but width in buffer() only works with degrees?? ####
+## buffer() - Unit of width is meter if x has a longitude/latitude CRS
 
 
 #### ANALYSIS ####
@@ -112,25 +114,47 @@ maskForestLoss <- function(forest_loss, roads) {
   # masking forest loss areas in gfc loss data according to road data
   forest_loss[forest_loss < 1] <- NA
   forest_loss_roads <- mask(forest_loss, roads)
-  # raster to polygons
-  forest_loss_roads_pol <- rasterToPolygons(forest_loss_roads, dissolve=F) 
-  #### TODO: rather use gdal_polygonizeR() due to runtime?? ####
-  # remove data column
-  forest_loss_roads_pol <- forest_loss_roads_pol[,-1]
+  forest_loss_roads_pol <- rasterToPolygons(forest_loss_roads, dissolve=F)
   return(forest_loss_roads_pol)
 }
 
 
-#### question for Martin: why does area(gfc_01_roads_pol) correspond to pixel size (900m²), but width in buffer() only works with degrees?? ####
-## buffer() - Unit of width is meter if x has a longitude/latitude CRS
+## iterate over all raster layers (=years): 
+# 1. mask forest loss according to roads 
+# 2. polygonize raster pixels
+# 3. save polygons into one spatialpolygonsdataframe & add year (as numeric)
 
-plot(gfc_roads_pol)
-#plot(gfc_buffer, add=T)
-plot(roadDevPixels,col="magenta")
+# index for iteration: starts at year 2001 (no forest loss in year 2000) = second layer in raster
+d <- 1
+
+# create empty spatialpolygons object
+pol<- SpatialPolygons(list(), proj4string=crs(gfc$forest_loss_01))
+dat <- data.frame(matrix(ncol=1,nrow=0, dimnames=list(NULL, c("year"))))
+sp <- SpatialPolygonsDataFrame(pol, data= dat)
+
+while(d < (nlayers(gfc))) {  
+  # mask forest loss according to roads & polygonize raster pixels via function maskForestLoss
+  # save as spatialpolygons (remove data section which would lead to errors in rbind due to different column naming)
+  sp_new <- SpatialPolygons(maskForestLoss(gfc[[d+1]], roads_union_buffer)@polygons, proj4string=crs(gfc$forest_loss_01))
+  # add year as column
+  sp_new$year <- rep(d, length(sp_new))
+  # save all polygons into one spatialpolygonsdataframe (via rbind())
+  sp <- rbind(sp, sp_new)
+  d=d+1
+}
+
+table(sp$year)
+plot(sp[sp$year == 1,])
+
+# TODO: convert numeric values to actual years?? ####
 
 
-plot(roads_union_buffer)
-plot(gfc_01_roads_pol, add=T, col="magenta")
+# 4. stepwise (cumulative) intersection of forest loss pixels & roads
+
+# via loop
+test <- bufferRoads(sp, roads_union_buffer)
+
+
 
 ## function to buffer around each road, only when x% of forest loss pixels in buffer, then road dev
 bufferRoads <- function(gfc_roads_pol, roads_buffer) {
@@ -145,22 +169,25 @@ bufferRoads <- function(gfc_roads_pol, roads_buffer) {
   return(roads)
 }
 
-## function to get corresp. forest loss pixels which lie on roads
-bufferPixels <- function(gfc_roads_pol, roads) {
-  # check if roads is empty
-  if (length(roads) == 0) {
-    # bullshit comparison to pass empty spatialpolygonsdataframe
-    pixels <- gfc_roads_pol[gfc_roads_pol$area == "hello",]
-  } else {
-    # forest loss pixels which lie on roads
-    pixels <- gfc_roads_pol[!is.na(over(gfc_roads_pol, roads)[,1]),]
-  }
-  return(pixels)
-}
+# ## function to get corresp. forest loss pixels which lie on roads
+# bufferPixels <- function(gfc_roads_pol, roads) {
+#   # check if roads is empty
+#   if (length(roads) == 0) {
+#     # bullshit comparison to pass empty spatialpolygonsdataframe
+#     pixels <- gfc_roads_pol[gfc_roads_pol$area == "hello",]
+#   } else {
+#     # forest loss pixels which lie on roads
+#     pixels <- gfc_roads_pol[!is.na(over(gfc_roads_pol, roads)[,1]),]
+#   }
+#   return(pixels)
+# }
+
+
+
 
 
 ## year 2001
-# mask loss areas in gfc loss data according to road data (using function)
+
 gfc_01_roads_pol <- maskForestLoss(gfc$forest_loss_01, roads_union_buffer)
 
 plot(gfc_01_roads_pol)
@@ -171,39 +198,25 @@ roads_01 <- bufferRoads(gfc_01_roads_pol, roads_union_buffer)
 # forest loss pixels which corresponds to road dev. in year 2001
 gfc_roadDev_01 <- bufferPixels(gfc_01_roads_pol, roads_01)
 
-# remove corresp. forest loss pixels from polygons 
-if (length(pixels) != 0) {
-  pixelsNotIn_01 <- erase(gfc_roads_pol, pixels)
-} else {
-  pixelsNotIn_01 <- pixels
-}
-
-# remove intersecting roads from road network for analysis of next year
-if (length(roads_01) != 0) {
-  roads_01_new <- erase(roads_union_buffer, roads_01)
-} else {
-  roads_01_new <- roads_01
-}
 
 #### TODO: better & consistent naming ! ####
 
+
 ## year 2002
-gfc_02_roads_pol <- maskForestLoss(gfc$forest_loss_02, roads_01_new)
+# remove intersecting roads from previous year
+if (length(roads_01) != 0) {
+  roads_01_new <- erase(roads_union_buffer, roads_01)
+} else {
+  roads_01_new <- roads_union_buffer
+}
 
-#### TODO: combine pixels with left over pixels from previous year ####
+gfc_02_roads_pol <- maskForestLoss(gfc$forest_loss_02, roads_union_buffer)
+
+# combine pixels with non-road dev. pixels from previous year
+rbind(gfc_02_roads_pol, gfc_01_roads_pol)
+
+
 gfc_02_roads_pol_new <- rbind(pixelsNotIn_01, gfc_02_roads_pol, make.row.names=F)
-
-
-
-
-## year 2003
-gfc_03_roads_pol <- maskForestLoss(gfc$forest_loss_03, roads_union_buffer)
-
-intersect_03 <- roads_union_02[intersect(roads_union_02, gfc_03_roads_pol)]
-roads_union_03 <- roads_union_02[is.na(over(roads_union_02, gfc_03_roads_pol))]
-
-
-#### TODO: automate years via loop ####
 
 
 # roads not intersecting with forest loss pixels
