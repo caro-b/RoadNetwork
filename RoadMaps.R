@@ -150,9 +150,41 @@ plot(sp[sp$year == 1,])
 
 
 # 4. stepwise (cumulative) intersection of forest loss pixels & roads
+# index for years
+y <- 1
 
-# via loop
-test <- bufferRoads(sp, roads_union_buffer)
+# list for adding cumulative years
+year_list <- list(y)
+
+# add year variable to road polygons
+roads_union_buffer$year <- rep(NA, length(roads_union_buffer))
+
+while(y < 21) {
+  polygons_current_year <- sp[sp$year %in% year_list,]
+  # buffer around each road, only when x% of forest loss pixels in buffer, then road dev
+  roads <- bufferRoads(polygons_current_year, roads_union_buffer)
+  # if no road dev for that year, add year to list 
+  if (length(roads) == 0) {
+    year_list <- c(year_list, y)
+  } else {
+  # check if not already year saved (to not overwrite earlier year)
+  if (is.na(mean(roads_union_buffer$year[roads_union_buffer@polygons %in% roads@polygons]))) {
+    # note year of intersecting roads
+    roads_union_buffer$year[roads_union_buffer@polygons %in% roads@polygons] <- y
+  }
+  # reset list to current year
+  year_list <- list(y)
+  }
+  y=y+1
+}
+
+# drop roads with na year
+roads_union_clean <- roads_union_buffer[!is.na(roads_union_buffer$year),]
+
+lis <- c(1,2,3,4)
+plot(sp[sp$year %in% lis,])
+#plot(roads,add=T)
+plot(roads_union_clean[roads_union_clean$year==4,], add=T, col="magenta")
 
 
 
@@ -165,63 +197,17 @@ bufferRoads <- function(gfc_roads_pol, roads_buffer) {
   # count number of & calculate sum of area of forest loss pixels which lie in each buffer
   pixelsInBuffer <- over(roads_buffer, gfc_roads_pol, fn = sum)
   # get roads for which x% of forest loss pixels lie in buffer, then road dev
-  roads <- roads_buffer[((pixelsInBuffer$area / area(roads_buffer)) >= 0.3) & !is.na(pixelsInBuffer$area),]
+  roads <- roads_buffer[((pixelsInBuffer$area / area(roads_buffer)) >= 0.2) & !is.na(pixelsInBuffer$area),]
   return(roads)
 }
-
-# ## function to get corresp. forest loss pixels which lie on roads
-# bufferPixels <- function(gfc_roads_pol, roads) {
-#   # check if roads is empty
-#   if (length(roads) == 0) {
-#     # bullshit comparison to pass empty spatialpolygonsdataframe
-#     pixels <- gfc_roads_pol[gfc_roads_pol$area == "hello",]
-#   } else {
-#     # forest loss pixels which lie on roads
-#     pixels <- gfc_roads_pol[!is.na(over(gfc_roads_pol, roads)[,1]),]
-#   }
-#   return(pixels)
-# }
-
-
-
-
-
-## year 2001
-
-gfc_01_roads_pol <- maskForestLoss(gfc$forest_loss_01, roads_union_buffer)
-
-plot(gfc_01_roads_pol)
-
-# roads which correspond to road dev. in year 2001
-roads_01 <- bufferRoads(gfc_01_roads_pol, roads_union_buffer)
-
-# forest loss pixels which corresponds to road dev. in year 2001
-gfc_roadDev_01 <- bufferPixels(gfc_01_roads_pol, roads_01)
 
 
 #### TODO: better & consistent naming ! ####
 
 
-## year 2002
-# remove intersecting roads from previous year
-if (length(roads_01) != 0) {
-  roads_01_new <- erase(roads_union_buffer, roads_01)
-} else {
-  roads_01_new <- roads_union_buffer
-}
-
-gfc_02_roads_pol <- maskForestLoss(gfc$forest_loss_02, roads_union_buffer)
-
-# combine pixels with non-road dev. pixels from previous year
-rbind(gfc_02_roads_pol, gfc_01_roads_pol)
-
-
-gfc_02_roads_pol_new <- rbind(pixelsNotIn_01, gfc_02_roads_pol, make.row.names=F)
-
 
 # roads not intersecting with forest loss pixels
-plot(aoi, main= "Roads not intersecting with Forest Loss Pixels")
-plot(roads_union_20, add=T, col = "magenta")
+
 
 
 
@@ -260,7 +246,7 @@ legend("topleft",legend=c("Year 2001-2004","Year 2005-2009","Year 2011-2014","Ye
 # first convert data to sf & add year column
 intersect_01_sf <- st_as_sf(intersect_01)
 intersect_01_sf$year <- 2001
- 
+
 # # convert to SpatialLinesDataFrame & add year
 # intersect_01_sl <- SpatialLinesDataFrame(intersect_01, as.data.frame(intersect_01_sf$year), match.ID = F)
 
@@ -314,7 +300,7 @@ intersect_19_sf$year <- 2019
 
 # combine years into one dataframe
 intersect <- rbind(intersect_01_sf, intersect_02_sf, intersect_03_sf, intersect_04_sf, intersect_05_sf, intersect_07_sf, intersect_08_sf, intersect_09_sf,
-                    intersect_11_sf, intersect_12_sf, intersect_13_sf, intersect_14_sf, intersect_15_sf, intersect_16_sf, intersect_18_sf, intersect_19_sf)
+                   intersect_11_sf, intersect_12_sf, intersect_13_sf, intersect_14_sf, intersect_15_sf, intersect_16_sf, intersect_18_sf, intersect_19_sf)
 
 # convert year to factor (for plotting)
 intersect$year <- as.factor(intersect$year)
@@ -332,7 +318,7 @@ plot(area)
 
 
 # animation - road development per year
-  area +
+area +
   theme(legend.position = "none") +
   # Here comes the gganimate part
   labs(title = "Road Development 2000-2020", subtitle = "Year: {closest_state}") +
