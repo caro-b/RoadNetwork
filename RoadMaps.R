@@ -179,19 +179,22 @@ while(y < nlayers(gfc)) {
 ## remove roads with no corresponding forest loss between 2000 and 2020 (na in year column)
 roads_final <- roads_union_buffer[!is.na(roads_union_buffer$year),]
 
+## convert year numbers to actual years
+roads_final$year <- as.numeric(roads_final$year)
+roads_final$year[roads_final$year <= 9] <- paste("200", roads_final$year[roads_final$year <= 9], sep = "")
+roads_final$year[!grepl("200", roads_final$year)] <- paste("20", roads_final$year[!grepl("200", roads_final$year)], sep = "")
+
+# convert to numeric
+roads_final$year <- as.numeric(roads_final$year)
+
 # lis <- seq(1:19)
 # plot(sp_forestloss[sp_forestloss$year %in% lis,])
 # plot(roads,add=T)
 # plot(roads_final[roads_final$year==19,], add=T, col="magenta")
 
-## change year numbers to actual years
-roads_final$year <- as.numeric(roads_final$year)
-roads_final$year[roads_final$year <= 9] <- paste("200", roads_final$year[roads_final$year <= 9], sep = "")
-roads_final$year[!grepl("200", roads_final$year)] <- paste("20", roads_final$year[!grepl("200", roads_final$year)], sep = "")
 
 
-
-#### EXPORT OUTCOME ####
+#### DATA EXPORT ####
 
 ## export polygons to shapefiles
 # export polygons of forest loss with corresponding years
@@ -208,16 +211,16 @@ writeOGR(roads_final, "RoadDevelopmentYears_20002020.shp", driver = "ESRI Shapef
 roads_final_sf <- st_as_sf(roads_final)
 
 # convert year to factor (for plotting)
-roads_final_sf$year <- as.factor(roads_final_sf$year)
+#roads_final_sf$year <- as.factor(roads_final_sf$year)
 
 ## basic plot
 area <- 
-  ggplot(data=roads_final_sf) +
-  geom_sf(aes(fill = year)) +
+  ggplot(data = roads_final_sf) +
+  geom_sf(aes(color = as.factor(roads_final_sf$year))) +
   #scale_fill_hue() +
   borders(aoi, colour = "gray85") +
   theme_map() 
-#### TODO: change color of lines ####
+
 plot(area)
 
 
@@ -225,7 +228,7 @@ plot(area)
 area +
   theme(legend.position = "none") +
   # Here comes the gganimate part
-  transition_states(year) +
+  labs(title = "Road Development 2000-2020", subtitle = "Year: {current_frame}") +
   transition_manual(year, cumulative = T) +
-  labs(title = "Road Development 2000-2020", subtitle = roads_final_sf$year) + #"Year: {closest_state}" #### TODO:  adapt year to changing frame ####
   ease_aes('linear')
+
