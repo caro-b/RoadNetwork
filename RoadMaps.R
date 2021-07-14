@@ -1,8 +1,20 @@
+## Purpose of this script:
+# Detect road development in Bach Ma Nationalpark (Vietnam) for the years 2000 untill 2020
+# OSM Road data and Hansen Forest Loss data is intersected to detect the year in which the development of each road started
+## Data sources: Hansen Global Forest Change Data v1.8, OSM Road Data, Sentinel2 (ESA) Satellite Data
+## Author: Caroline Busse
+## email: caroline.busse@stud-mail.uni-wuerzburg.de
+## git: https://github.com/caro-b
+## Date: July, 2021
+## R version: 4.0.5
+## operating system used for testing: Windows 10
+
+
 
 #### SETUP ####
 
 ## install required packages (if not installed yet)
-packagelist <- c("dplyr","gganimate","ggplot2","ggthemes","maps","osmdata","raster","rgee","rgdal","rgeos","sf","tidyverse")
+packagelist <- c("dplyr","gganimate","ggplot2","ggthemes","maps","osmdata","raster","rgee","rgdal","rgeos","RStoolbox","sf","tidyverse")
 new.packages <- packagelist[!(packagelist %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
@@ -46,6 +58,11 @@ gfc_stack <- stack(gfc_files)
 
 # convert to raster brick to shorten processing time
 gfc <- brick(gfc_stack)
+
+
+## input Sentinel-2 RGB as raster stack as background for plotting
+#### TODO: change naming ####
+sent_2020 <- stack(paste(dir, "Vt_area_2020.tif", sep = ""))
 
 
 
@@ -211,24 +228,51 @@ writeOGR(roads_final, "RoadDevelopmentYears_20002020.shp", driver = "ESRI Shapef
 roads_final_sf <- st_as_sf(roads_final)
 
 # convert year to factor (for plotting)
-#roads_final_sf$year <- as.factor(roads_final_sf$year)
+roads_final_sf$year <- as.factor(roads_final_sf$year)
 
 ## basic plot
-area <- 
+basic <- 
   ggplot(data = roads_final_sf) +
-  geom_sf(aes(color = as.factor(roads_final_sf$year))) +
-  #scale_fill_hue() +
-  borders(aoi, colour = "gray85") +
-  theme_map() 
+  # add RGB plot of Sentinel2 data as background
+  # set scale to maximum pixel value of the 3 raster bands
+  ggRGB(sent_2020, 1, 2, 3, scale = 0.3, ggLayer = T) +
+  # add road data with year of development as coloring factor
+  geom_sf(aes(color = year, fill = year)) +
+  # remove background grid & axes
+  theme_map()
 
-plot(area)
+
+## map of road development
+basic +
+  # change legend title
+  labs(
+    #fill = "Year",
+    title = "Road Development", 
+    subtitle = "Bach Ma Nationalpark (Vietnam), 2000-2020") +
+  # remove legend for color parameter
+  guides(#color = F,
+         # write fill legend into 2 rows
+         colour = guide_legend(nrow = 2, byrow = TRUE,
+         keyheight = unit(2, units = "mm"))
+  ) +
+  theme(
+    # change title format
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    # change legend position
+    legend.position = "bottom", legend.justification = 'right',
+    # change legend title formatting
+    legend.title = element_text(face = "bold"),
+    legend.key = element_rect(colour = "white"))
 
 
 ## animation of consecutive road development per year
-area +
-  theme(legend.position = "none") +
+basic +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 14, face = "bold")) +
   # Here comes the gganimate part
-  labs(title = "Road Development 2000-2020", subtitle = "Year: {current_frame}") +
+  labs(title = "Road Development \nBach Ma Nationalpark (Vietnam), 2000-2020", subtitle = "Year: {current_frame}") +
   transition_manual(year, cumulative = T) +
   ease_aes('linear')
 
