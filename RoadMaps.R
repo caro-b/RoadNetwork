@@ -31,11 +31,12 @@ getwd()
 ## set directory to folder where input files lie
 dir <- "C:/Users/carob/Dropbox/EAGLE/SS21/Conservation/RoadNetwork/"
 
+
 ## input area of interest (Bach Ma Nationalpark)
-aoi <- readOGR(paste(dir, "prediction_area.shp", sep = ""))
+aoi <- readOGR(paste(dir, "inputdata/prediction_area.shp", sep = ""))
 
 ## input manually digitized roads from IZW
-roads_IZW_2014 <- readOGR(paste(dir, "2014.shp", sep = ""))
+roads_IZW_2014 <- readOGR(paste(dir, "inputdata/2014.shp", sep = ""))
 
 ## input OSM road data
 # convert bounding box to an overpass query object (API)
@@ -62,7 +63,7 @@ gfc <- brick(gfc_stack)
 
 ## input Sentinel-2 RGB as raster stack as background for plotting
 #### TODO: change naming ####
-sent_2020 <- stack(paste(dir, "Vt_area_2020.tif", sep = ""))
+sent_2020 <- stack(paste(dir, "S2_RGB_2020.tif", sep = ""))
 
 
 
@@ -204,11 +205,6 @@ roads_final$year[!grepl("200", roads_final$year)] <- paste("20", roads_final$yea
 # convert to numeric
 roads_final$year <- as.numeric(roads_final$year)
 
-# lis <- seq(1:19)
-# plot(sp_forestloss[sp_forestloss$year %in% lis,])
-# plot(roads,add=T)
-# plot(roads_final[roads_final$year==19,], add=T, col="magenta")
-
 
 
 #### DATA EXPORT ####
@@ -276,3 +272,6 @@ basic +
   transition_manual(year, cumulative = T) +
   ease_aes('linear')
 
+
+## export animation as a GIF
+anim_save("RoadDevelopment_Animation.gif")
