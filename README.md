@@ -9,7 +9,8 @@ The purpose of this script is to detect road development in Bach Ma Nationalpark
 ## **Analysis**
 OSM Road data and Hansen Forest Loss data is intersected to detect the year in which the development of each road started.
 
-Data sources: Hansen Global Forest Change Data v1.8, OSM Road Data, Sentinel2 (ESA) Satellite Data
-
+Data sources: 
+- Hansen Global Forest Change Data v1.8
+- OSM Road Data
 
 ![](RoadDevelopment_Animation.gif)
