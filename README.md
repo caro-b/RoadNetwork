@@ -11,6 +11,6 @@ OSM Road data and Hansen Forest Loss data is intersected to detect the year in w
 
 Data sources: 
 - Hansen Global Forest Change Data v1.8
-- OSM Road Data
+- OSM Road Data, road data (courtesy of IZW)
 
 ![](RoadDevelopment_Animation.gif)
